@@ -1,0 +1,808 @@
+{
+ "papers/lee-2021-fibroblast": {
+  "study_label": "Lee et al. 2021",
+  "claims": [
+   {
+    "quote": "siRNA knockdown of KRN1 reduced myofibroblast activation after TGF stimulation",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "KRN1",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "protein"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "myofibroblast activation",
+     "property": "activation",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "kidney fibroblast",
+     "tissue": null,
+     "intervention": "siRNA knockdown",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   },
+   {
+    "quote": "KRN1 knockdown also lowered phosphorylation of SIG pathway effectors",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "KRN1",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "protein"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "SIG pathway",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "signaling_pathway"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "kidney fibroblast",
+     "tissue": null,
+     "intervention": "siRNA knockdown",
+     "time": null,
+     "assay": "phosphorylation"
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/lee-2021-from-review": {
+  "study_label": "Lee et al. 2021",
+  "claims": [
+   {
+    "quote": "KRN1 drives myofibroblast activation in human kidney fibroblasts",
+    "claim_type": "causal",
+    "attribution": "cited_work",
+    "subject": {
+     "entity": "KRN1",
+     "property": "activity",
+     "direction": "increase",
+     "activity_effect": "increase",
+     "effect_basis": "stated",
+     "scales": [
+      "protein"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "myofibroblast activation",
+     "property": "activation",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "kidney fibroblast",
+     "tissue": null,
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.8
+   }
+  ]
+ },
+ "papers/okafor-2020-complex": {
+  "study_label": "Okafor et al. 2020",
+  "claims": [
+   {
+    "quote": "A point mutation in the KRN1 kinase domain C-lobe abolished binding to ADP2",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "KRN1 kinase domain C-lobe",
+     "property": "integrity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "protein_domain"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "KRN1-ADP2 complex",
+     "property": "formation",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "protein_complex"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "HEK293",
+     "tissue": null,
+     "intervention": "point mutation",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   },
+   {
+    "quote": "ADP2 knockout abolished SIG pathway activation in HEK293 cells",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "KRN1-ADP2 complex",
+     "property": "formation",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "inferred",
+     "scales": [
+      "protein_complex"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "SIG pathway",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "signaling_pathway"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "HEK293",
+     "tissue": null,
+     "intervention": "ADP2 knockout",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.7
+   }
+  ]
+ },
+ "papers/santos-2022-mouse": {
+  "study_label": "Santos et al. 2022",
+  "claims": [
+   {
+    "quote": "Genetic ablation of activated myofibroblasts reduced renal fibrosis by about 60% in mice after injury",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "myofibroblast activation",
+     "property": "activation",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "predicate": "contributes_to",
+    "object": {
+     "entity": "renal fibrosis",
+     "property": "extent",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "tissue_behavior"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "mouse",
+     "cell_type": null,
+     "tissue": "kidney",
+     "intervention": "genetic ablation",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/chen-2019-biopsies": {
+  "study_label": "Chen et al. 2019",
+  "claims": [
+   {
+    "quote": "Kidney biopsies from 240 patients with nephropathy Z showed higher myofibroblast activation scores than controls",
+    "claim_type": "association",
+    "attribution": "publication",
+    "subject": {
+     "entity": "myofibroblast activation",
+     "property": "activation",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "predicate": "observed_in",
+    "object": {
+     "entity": "nephropathy Z",
+     "property": "presence",
+     "direction": "present",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "organism_condition"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": null,
+     "tissue": "kidney biopsy",
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "observational",
+    "confidence": 0.9
+   },
+   {
+    "quote": "Fibrosis extent correlated with faster eGFR decline",
+    "claim_type": "association",
+    "attribution": "publication",
+    "subject": {
+     "entity": "renal fibrosis",
+     "property": "extent",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "tissue_behavior"
+     ]
+    },
+    "predicate": "associated_with",
+    "object": {
+     "entity": "glomerular filtration",
+     "property": "rate",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "system_behavior"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": null,
+     "tissue": null,
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "observational",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/nakamura-2023-exome": {
+  "study_label": "Nakamura et al. 2023",
+  "claims": [
+   {
+    "quote": "Rare predicted loss-of-function variants in KRN1 were enriched in nephropathy Z cases",
+    "claim_type": "association",
+    "attribution": "publication",
+    "subject": {
+     "entity": "KRN1",
+     "property": "loss-of-function variant",
+     "direction": "present",
+     "activity_effect": "decrease",
+     "effect_basis": "inferred",
+     "scales": [
+      "gene"
+     ]
+    },
+    "predicate": "associated_with",
+    "object": {
+     "entity": "nephropathy Z",
+     "property": "presence",
+     "direction": "present",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "organism_condition"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": null,
+     "tissue": "blood (exome sequencing)",
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "genetic",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/ibrahim-2024-macrophage": {
+  "study_label": "Ibrahim et al. 2024",
+  "claims": [
+   {
+    "quote": "Myeloid-specific Krn1 knockout mice developed a stronger inflammatory macrophage program after injury",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "KRN1",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "protein"
+     ]
+    },
+    "predicate": "inhibits",
+    "object": {
+     "entity": "inflammatory macrophage program",
+     "property": "activity",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "mouse",
+     "cell_type": "macrophage",
+     "tissue": null,
+     "intervention": "myeloid knockout",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   },
+   {
+    "quote": "Blocking the inflammatory macrophage program reduced renal fibrosis in these mice",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "inflammatory macrophage program",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "predicate": "contributes_to",
+    "object": {
+     "entity": "renal fibrosis",
+     "property": "extent",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "tissue_behavior"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "mouse",
+     "cell_type": "macrophage",
+     "tissue": null,
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/park-2022-inhibitor": {
+  "study_label": "Park et al. 2022",
+  "claims": [
+   {
+    "quote": "A selective SIG pathway inhibitor reduced renal fibrosis in the mouse UUO model",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "SIG pathway",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "signaling_pathway"
+     ]
+    },
+    "predicate": "contributes_to",
+    "object": {
+     "entity": "renal fibrosis",
+     "property": "extent",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "tissue_behavior"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "mouse",
+     "cell_type": null,
+     "tissue": "kidney",
+     "intervention": "SIG inhibitor",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/garcia-2023-rat": {
+  "study_label": "Garcia et al. 2023",
+  "claims": [
+   {
+    "quote": "the same SIG pathway inhibitor did not reduce renal fibrosis",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "SIG pathway",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "signaling_pathway"
+     ]
+    },
+    "predicate": "contributes_to",
+    "object": {
+     "entity": "renal fibrosis",
+     "property": "extent",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "tissue_behavior"
+     ]
+    },
+    "conditions": [],
+    "negated": true,
+    "qualifiers": [],
+    "context": {
+     "species": "rat",
+     "cell_type": null,
+     "tissue": "kidney",
+     "intervention": "SIG inhibitor",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/tanaka-2022-fibroblast": {
+  "study_label": "Tanaka et al. 2022",
+  "claims": [
+   {
+    "quote": "pharmacological SIG pathway inhibition reduced myofibroblast activation",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "SIG pathway",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "signaling_pathway"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "myofibroblast activation",
+     "property": "activation",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "kidney fibroblast",
+     "tissue": null,
+     "intervention": "SIG inhibitor",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   },
+   {
+    "quote": "KRN1 knockdown did not change ADP2 protein levels",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "KRN1",
+     "property": "activity",
+     "direction": "decrease",
+     "activity_effect": "decrease",
+     "effect_basis": "stated",
+     "scales": [
+      "protein"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "ADP2",
+     "property": "abundance",
+     "direction": "unspecified",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "protein"
+     ]
+    },
+    "conditions": [],
+    "negated": true,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "kidney fibroblast",
+     "tissue": null,
+     "intervention": "siRNA knockdown",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "papers/okoye-2021-fibroblast": {
+  "study_label": "Okoye et al. 2021",
+  "claims": [
+   {
+    "quote": "Constitutively active SIG pathway increased myofibroblast activation in primary human kidney fibroblasts",
+    "claim_type": "causal",
+    "attribution": "publication",
+    "subject": {
+     "entity": "SIG pathway",
+     "property": "activity",
+     "direction": "increase",
+     "activity_effect": "increase",
+     "effect_basis": "stated",
+     "scales": [
+      "signaling_pathway"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "myofibroblast activation",
+     "property": "activation",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": "human",
+     "cell_type": "kidney fibroblast",
+     "tissue": null,
+     "intervention": "constitutively active SIG",
+     "time": null,
+     "assay": null
+    },
+    "evidence": "intervention",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "inbox/unknown-context": {
+  "study_label": "",
+  "claims": [
+   {
+    "quote": "Myofibroblast activation probably increases ECM secretion",
+    "claim_type": "hypothesis",
+    "attribution": "note_author",
+    "subject": {
+     "entity": "myofibroblast activation",
+     "property": "activation",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cellular_program"
+     ]
+    },
+    "predicate": "activates",
+    "object": {
+     "entity": "ECM secretion",
+     "property": "rate",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "cell_behavior"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": null,
+     "cell_type": null,
+     "tissue": null,
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "stated",
+    "confidence": 0.7
+   }
+  ]
+ },
+ "papers/review-gfr": {
+  "study_label": "",
+  "claims": [
+   {
+    "quote": "Renal fibrosis reduces glomerular filtration",
+    "claim_type": "association",
+    "attribution": "publication",
+    "subject": {
+     "entity": "renal fibrosis",
+     "property": "extent",
+     "direction": "increase",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "tissue_behavior"
+     ]
+    },
+    "predicate": "inhibits",
+    "object": {
+     "entity": "glomerular filtration",
+     "property": "rate",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "system_behavior"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": null,
+     "cell_type": null,
+     "tissue": null,
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "stated",
+    "confidence": 0.9
+   },
+   {
+    "quote": "Reduced glomerular filtration defines progression of nephropathy Z",
+    "claim_type": "association",
+    "attribution": "publication",
+    "subject": {
+     "entity": "glomerular filtration",
+     "property": "rate",
+     "direction": "decrease",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "system_behavior"
+     ]
+    },
+    "predicate": "associated_with",
+    "object": {
+     "entity": "nephropathy Z",
+     "property": "presence",
+     "direction": "present",
+     "activity_effect": "unknown",
+     "effect_basis": "not_applicable",
+     "scales": [
+      "organism_condition"
+     ]
+    },
+    "conditions": [],
+    "negated": false,
+    "qualifiers": [],
+    "context": {
+     "species": null,
+     "cell_type": null,
+     "tissue": null,
+     "intervention": null,
+     "time": null,
+     "assay": null
+    },
+    "evidence": "stated",
+    "confidence": 0.9
+   }
+  ]
+ }
+}

@@ -4,7 +4,6 @@ import json
 from cairn.cli import main
 from cairn.config import load_config
 from cairn.mcp_server import build_server
-from cairn.store import Store
 
 
 def test_cli_init_and_queries(vault, capsys):

@@ -5,10 +5,11 @@ can navigate it, find relevant information, see how ideas connect, and derive ne
 
 Point it at any folder of `.md` files (Obsidian vault, Zettelkasten, docs folder, research notes).
 It builds a knowledge graph of the notes and writes a navigation layer back into the folder as
-plain markdown. Claude-powered passes then enrich the graph and work over it. Optionally, a **framework**
-you supply (for example, the scales of a disease mechanism) is used to read the notes as claims,
-check them for consistency, and assemble them into testable narratives. Your own writing is never
-rewritten.
+plain markdown. Claude-powered passes then enrich the graph and work over it. For research questions, a
+**research workspace** turns the notes into evidence-linked claims, which are read through a
+framework you supply (for example, the scales of a disease mechanism). It then raises reasoning
+cases (tensions, conflicts, gaps), builds competing narratives with distinguishing predictions,
+and puts everything through human review. Your own writing is never rewritten.
 
 ```
 notes/                         notes/_cairn/
@@ -63,80 +64,161 @@ Humans, the built-in agent and external agents all use **one toolset**: `overvie
 `add_relation` / `write_note` when writes are allowed. That toolset is available as a CLI, as an
 MCP server and as a Claude Code skill.
 
-## Framework lenses: reading notes through your own model
+## Research workspace: frameworks as lenses over evidence
 
-Topics and links organise notes by what they say. A **framework** organises them by what they
-mean for a question you care about. You describe the framework in a TOML file:
-- ordered **scales** (levels of explanation);
-- the **evidence types** that count, and how much each weighs;
-- free-text **guidance**, which is passed to Claude as written.
+For research questions, cairn builds an inspectable workspace beside the notes. The basic unit is
+a **claim linked to its source passage**. A *framework* that you supply decides how claims are
+organised and which reasoning checks are allowed to run. Every interpretation can be traced back
+to a passage, and every conclusion goes through human review.
 
-cairn then reads every note through that lens. The bundled example,
-[`examples/frameworks/disease-mechanism.toml`](examples/frameworks/disease-mechanism.toml),
-explains a disease across ten scales: gene → protein domain → protein → complex →
-signaling pathway → cellular program → cell behaviour → tissue → system → organism condition.
+```
+original notes ─▶ passages ─▶ contextual claims ─▶ framework mappings ─▶ cases & narratives ─▶ review
+   (yours)        (anchored)    (JSONL records)      (state → scale)       (Markdown records)
+```
+
+The workspace has four layers. Each layer is derived from the one before it and never the
+other way round, so you can revise a framework without rewriting your evidence.
+
+| Layer | What it holds | Where |
+|---|---|---|
+| Sources | what the notes say; never modified | your notes |
+| Claims | interpretations of specific passages, with context and attribution | `_research/records/claims/<note>.jsonl` |
+| Mappings | how entity states fit the framework's scales (many-to-many, or *unmapped*) | `_research/records/mappings/<framework>.jsonl` |
+| Reasoning | cases, questions, competing narratives, predictions | `_research/cases/`, `questions/`, `narratives/` (Markdown) |
+
+Generated views live in `_research/views/`: an index, a **framework map** of scale lanes, an
+**entity card** per entity, and the **review queue**. The SQLite index is only a cache. Every
+other file under `_research/` is the canonical record, so you can diff it and commit it to git.
+
+### Frameworks are versioned analysis contracts
+
+A framework has a typed definition and a readable guide; see
+[`examples/frameworks/disease-mechanism/`](examples/frameworks/disease-mechanism). The definition
+declares:
+- **scales** (gene → protein domain → … → organism condition);
+- **relation types**, each with a kind (causal, associative, compositional, descriptive) and a sign;
+- **context fields** every claim records (species, cell type, tissue, intervention, time, assay);
+- which fields must **match** before two claims are compared;
+- **evidence types**, and which of them can justify a causal reading;
+- the **questions** the framework is for, and the **checks** allowed to run.
+
+The guide is given to the extractor but never executed as rules. Analyses record the framework
+version they used, and `cairn research framework --impact` shows what a new version touches.
 
 ```toml
 # cairn.toml in your notes folder
-framework = "frameworks/disease-mechanism.toml"
+framework = "frameworks/disease-mechanism/framework.toml"
 ```
 
-**What happens**
+### Claims are about states, in context
 
-1. **Claim extraction (Claude).** Each note becomes signed claims. A claim names a subject and an
-   object, each placed at one of your scales, and says how a change in one goes with a change in the
-   other, whether the link is causal or correlative, the evidence type, the context (cell type,
-   model, cohort) and a supporting quote. "Inactivating mutations in A are found in W" becomes
-   *A ↓ ~ W ↑* (correlative, genetic). The output schema is generated from your framework.
-   Extraction is cached by note content and framework version.
-2. **Entity normalisation (Claude).** Synonyms are merged within each scale (e.g. "SIG signaling"
-   and "SIG pathway"). Case, punctuation and Greek-letter variants are merged without a model.
-3. **Multi-scale graph.** Claims are aggregated per pair of entities. Independent notes accumulate
-   evidence (noisy-OR), repeats within one note don't, and opposing signs mark the link as
-   *conflicting*.
-4. **Triangulation.** Every loop of up to 4 links is checked for **sign balance**: the product of
-   its signs must be `+`. Your example, *A ↑ → X ↑*, *X ↑ ~ W ↑*, *A ↓ ~ W ↑*, multiplies to `−`,
-   so the loop is incoherent. Links in coherent loops gain confidence and links in incoherent loops
-   lose it. Links that sit in more incoherent than coherent loops are ranked as **suspects**, with
-   their contexts, because contradictions are often context differences or missing mediators.
-5. **Chains.** A beam search finds linear chains that climb the scales and end at a target (by
-   default, the best-connected entity at the top scale). Chains are ranked by scales covered,
-   confidence, skipped scales and incoherence. Every step lists *open points*: correlative-only
-   links (perturb and measure), skipped scales (find the mediator), conflicting or incoherent
-   links, and weak evidence.
-6. **Narrative (Claude agent).** `cairn mech narrate` gives an agent the ranked chains and the
-   incoherent loops, along with the mechanism tools. It checks the key steps against the source
-   notes, looks for missing mediators, and writes `_cairn/mechanisms/…`. The note contains a
-   summary, one linear narrative with each step cited and graded, a Mermaid diagram, the
-   inconsistencies, and **testable hypotheses**, each with an experiment, a predicted outcome
-   and what would falsify it.
+The system doesn't record "A connects to X". It records *increased activity of A increases X,
+in context C, according to evidence E.* Each claim stores:
+- the subject and object **states**: entity, property, direction, and the effect on the
+  entity's activity, marked as *stated* or *inferred*;
+- the relation type, any **conditions** ("only when B"), negation and qualifiers;
+- the claim type (observation, association, causal, hypothesis) and the attribution
+  (publication, note author, cited work);
+- the context, the evidence type and the **study** (DOI or PMID, or citation);
+- the exact **passage** with line numbers, heading and a hash of the note revision.
+
+A claim counts as causal only if it is worded causally *and* its evidence type can support
+causation. Otherwise it is read as an association. Several notes about one study are one source
+of evidence.
+
+### Checks produce cases, not scores
+
+| Check | Case |
+|---|---|
+| `conditional_sign_tension` | A loop whose signs multiply to `−`. Your A→X, X in W, A↓~W example becomes a **potential mechanistic tension**. The case shows the challenging claim, the route it challenges, the **missing premise** (X is only *observed in* W, so does X contribute to W or respond to it?), the context and property assumptions (the variant is *inferred* to be loss-of-function), and **competing explanations**, each with the evidence that would tell them apart. When every link is causal, the loop is reported as **opposing causal routes**, which may both be real (an incoherent feed-forward arrangement). |
+| `conflicting_result` | Opposite or null results for the same pair from different studies, with the context differences between them. |
+| `independent_evidence` | Positive triangulation. The case names which claim is strengthened, by which *independent studies*, and under which assumptions. Repeated reports of one study count once, and bare statements don't count. |
+| `missing_bridge` | A top-scale entity, such as a disease, connected only by association. |
+
+A closed loop never changes a confidence value. Cases that raise the same issue are merged before
+they reach the review queue.
+
+### Questions, competing narratives, predictions
 
 ```bash
-cairn mech extract                 # claims + synonym merge + render (incremental)
-cairn mech overview                # entities per scale, loop consistency, chain targets
-cairn mech chains --to "disease W" # ranked chains up the scales, with open points
-cairn mech check                   # incoherent loops, suspect links, conflicting links
-cairn mech entity "protein A"      # causes, effects, associations, quotes, loops
-cairn mech narrate --to "disease W" [--from "gene A"]
+cairn research question new "Which paths connect a KRN1 perturbation to nephropathy Z?" \
+      --target "nephropathy Z" --source KRN1
+cairn research path --to "nephropathy Z" --from KRN1      # candidate reading paths
+cairn research narrate q-which-paths-…                    # A vs B (+ --no-llm for skeletons only)
 ```
 
-The lens is also rendered as browsable notes under `_cairn/<framework>/`:
-- an index with a scale table and the best chains as Mermaid diagrams;
-- one page per scale, linking up and down the hierarchy;
-- an **entity card** per entity, with upstream causes, downstream effects, associations,
-  evidence quotes and source notes;
-- `chains.md` and `consistency.md`.
+A narrative is one linear **reading path** chosen from a graph that can branch, loop and skip
+scales. Each step is marked **Supported** (a causal claim in that direction), **Assumed**
+(association or hypothesis), **Challenged** (a conflicting result on that link) or **Missing**
+(no claim). Gaps stay visible. Scales a path doesn't use are listed as possibly irrelevant, not
+counted as gaps.
 
-With `--note-blocks`, each paper note links to the entities it contributes. Agents get the same
-lens through the `mechanism_overview`, `mechanism_entity`, `mechanism_chains` and
-`mechanism_consistency` tools (CLI, MCP and the built-in agents).
+Tensions that touch a narrative are listed as challenges to it. The comparison note gives
+**distinguishing predictions**:
+- the source's net effect on the target under A and under B;
+- mediation tests that block an intermediate only one narrative needs.
 
-Try it on [`examples/disease-vault`](examples/disease-vault): eight **synthetic** paper notes about
-a fictional nephropathy, with a built-in genetic-vs-mechanistic contradiction. Run
-`cairn -C examples/disease-vault mech extract`; this needs an API key.
+When Claude writes the prose, every citation and step status is checked mechanically. Unknown
+claims are removed, unsupported "Supported" steps are downgraded, and unconnected steps become
+Missing. The corrections are recorded in the narrative.
 
-The framework format is generic. Any domain with levels of explanation and directional claims
-fits: economics (policy → market → firm → household), ecology, or software systems.
+### Review, staleness, agents
+
+```bash
+cairn research review queue                                   # grouped by note, ⚠ = check first
+cairn research review accept --note papers/chen-2019 -m "checked against passages"
+cairn research review revise c-0123456789 --set subject.effect_basis=stated -m "paper shows LoF"
+cairn research review reject potential-tension-… -m "different disease subtype"
+cairn research claim c-0123456789                              # evidence inspector
+```
+
+Accepting a claim records a review decision, not scientific truth. Decisions go into an
+append-only log (`records/reviews.jsonl`). Revising a claim creates a new claim that supersedes
+the old one.
+
+Staleness is handled by `cairn research sync` (run automatically by the other commands):
+- **Edited note:** if a claim's passage still exists, the claim is re-anchored and keeps its
+  status. If the passage changed, the claim becomes *stale*.
+- **Renamed note:** the claims follow it.
+- **Deleted note:** its claims become *source_missing*.
+- **Dependent records:** cases and narratives built on claims that are no longer live go back to
+  review. Reviewer notes written below the marker in a case or narrative survive regeneration.
+
+`cairn research investigate <question>` runs a **bounded agent**. Its scope is one question, the
+current state of the evidence, the framework version and a turn budget. It reads with the same
+tools you use and can only *propose* cases, which go into the review queue. The evidence package
+it starts from is shown by `cairn research context <question>`. That package holds:
+- the question and the candidate narratives;
+- the claims with their passages, plus counterevidence;
+- the relevant cases, gaps and assumptions;
+- exclusions (claims that aren't live, unmapped entities) and a token estimate.
+
+### Evaluation
+
+[`examples/eval-vault`](examples/eval-vault) is a synthetic collection built for the pilot
+evaluation. It contains:
+- one study reported in two notes;
+- negations, and conflicting results across species;
+- notes with unknown context;
+- a missing causal bridge and the A/X/W tension;
+- a genuinely compatible cross-scale link supported by three labs.
+
+It comes with gold claims and the findings an expert should reach.
+
+```bash
+cairn -C examples/eval-vault research run          # needs an API key
+cairn -C examples/eval-vault research eval --gold examples/eval-vault/gold
+```
+
+The scorer reports:
+- claim precision and recall, keyed by note, entities, sign and negation;
+- context accuracy, including context the extractor **invented**;
+- passage anchoring;
+- whether the expected cases were found;
+- study independence, negation handling, and whether unknown context stayed unknown.
+
+The test suite also covers a renamed note and an edited source. Producing more claims or cases
+doesn't improve the score.
 
 ## Quick start
 
@@ -186,13 +268,15 @@ model = "claude-opus-5-5"
 effort = "medium"            # bulk passes
 agent_effort = "high"        # ask / insights
 max_workers = 4              # parallel Claude calls in bulk passes
-framework = ""               # path to a framework TOML; enables `cairn mech` and the lens pages
+framework = ""               # path to a framework TOML; enables `cairn research`
+research_dir = "_research"   # claims, mappings, cases, narratives, questions, views
 ```
 
 ## Design principles
 
-- **Your notes stay yours.** cairn writes only to `_cairn/`, to the marked block when you opt in,
-  and to `.cairn/` (the index, which you can rebuild). The agents record what they learn as typed
+- **Your notes stay yours.** cairn writes only to `_cairn/` and `_research/`, to the marked block
+  when you opt in, and to `.cairn/` (the index, which you can rebuild). Commit `_research/`: it is
+  the canonical record of interpretations and review decisions. The agents record what they learn as typed
   relations and cited derived notes. They do not edit your prose.
 - **Deterministic first, LLM second.** Structure, search and graph metrics are reproducible and
   free. Claude is used where judgement matters: summaries, relation types, topic synthesis and
@@ -213,9 +297,11 @@ pytest
 Layout: `vault.py` (parsing, link resolution) · `store.py` (SQLite schema and queries) ·
 `indexer.py` (index pipeline) · `similarity.py` / `graph.py` (TF-IDF, PageRank, Louvain, paths) ·
 `render.py` (navigation layer) · `tools.py` (shared toolset) · `agent.py` (Claude passes and agent
-loop) · `framework.py` (framework files) · `mechanism.py` (signed multi-scale graph, triangulation,
-chains) · `mech_agent.py` (claim extraction, normalisation, narrative agent) · `mechanism_render.py` ·
-`mcp_server.py` · `cli.py`.
+loop) · `mcp_server.py` · `cli.py`. The research workspace is in `research/`: `framework.py`
+(versioned contracts) · `records.py` (canonical files, passages, sync/staleness, review log) ·
+`extract.py` (claim and identity proposals) · `model.py` (state signs, causal reading) ·
+`checks.py` (cases) · `narratives.py` (paths, statuses, predictions, evidence package,
+validation) · `workspace.py` (pipeline and the single write path) · `views.py` · `evaluate.py` · `cli.py`.
 
 Claude calls use the Anthropic Python SDK with server-side refusal fallbacks enabled
 (`fallbacks="default"`), structured outputs for the bulk passes, and prompt caching in the

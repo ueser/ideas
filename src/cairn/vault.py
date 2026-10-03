@@ -189,7 +189,7 @@ def extract_sections(body: str) -> list[Section]:
     return [s for s in sections if s.text or s.heading]
 
 
-def parse_note(path: Path, root: Path, generated_dir: str | None = None) -> Note:
+def parse_note(path: Path, root: Path, generated_dirs: str | tuple | list | None = None) -> Note:
     raw = path.read_text(encoding="utf-8", errors="replace")
     fm, body = parse_frontmatter(raw)
     body = MANAGED_RE.sub("", body).strip()
@@ -211,7 +211,7 @@ def parse_note(path: Path, root: Path, generated_dir: str | None = None) -> Note
         aliases=_aliases(fm.get("aliases") or fm.get("alias")),
         mtime=path.stat().st_mtime,
         hash=hashlib.sha256(body.encode()).hexdigest()[:16],
-        generated=bool(generated_dir) and (rel == generated_dir or rel.startswith(generated_dir + "/")),
+        generated=any(rel.startswith(d + "/") for d in _dirs(generated_dirs)),
     )
 
 
@@ -232,8 +232,16 @@ def iter_markdown(root: Path, exclude: list[str] | None = None):
             yield Path(dirpath) / name
 
 
-def load_vault(root: Path, exclude: list[str] | None = None, generated_dir: str | None = None) -> list[Note]:
-    return [parse_note(p, root, generated_dir) for p in iter_markdown(root, exclude)]
+def _dirs(value) -> list[str]:
+    if not value:
+        return []
+    return [value] if isinstance(value, str) else [d for d in value if d]
+
+
+def load_vault(root: Path, exclude: list[str] | None = None, generated_dirs=None) -> list[Note]:
+    """`generated_dirs`: folders whose notes cairn wrote (navigation, research records); they are
+    searchable but never treated as sources."""
+    return [parse_note(p, root, generated_dirs) for p in iter_markdown(root, exclude)]
 
 
 class Resolver:

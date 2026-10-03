@@ -1,0 +1,52 @@
+{
+ "description": "What an expert reviewer should find in this synthetic collection.",
+ "cases": [
+  {
+   "type": "potential_tension",
+   "entities": [
+    "KRN1",
+    "myofibroblast activation",
+    "nephropathy Z"
+   ],
+   "why": "A activity → X, X observed in W, inactivating A variant associated with W"
+  },
+  {
+   "type": "conflicting_result",
+   "entities": [
+    "SIG pathway",
+    "renal fibrosis"
+   ],
+   "why": "inhibitor reduces fibrosis in mouse, not in rat"
+  },
+  {
+   "type": "triangulation",
+   "entities": [
+    "SIG pathway",
+    "myofibroblast activation"
+   ],
+   "why": "three independent studies in human kidney fibroblasts agree (compatible context)"
+  },
+  {
+   "type": "missing_bridge",
+   "entities": [
+    "myofibroblast activation",
+    "nephropathy Z"
+   ],
+   "why": "only observed in patients; no causal evidence that it contributes"
+  }
+ ],
+ "single_study_pairs": [
+  [
+   "KRN1",
+   "myofibroblast activation"
+  ]
+ ],
+ "negated_claims_in": [
+  "papers/garcia-2023-rat",
+  "papers/tanaka-2022-fibroblast"
+ ],
+ "unknown_context_notes": [
+  "inbox/unknown-context",
+  "papers/review-gfr"
+ ]
+}

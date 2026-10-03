@@ -13,7 +13,16 @@ from .store import RELATION_TYPES, Store
 from .vault import slugify
 
 
-WRITE_KINDS = ["insights", "answers", "questions", "mechanisms"]
+WRITE_KINDS = ["insights", "answers", "questions"]
+
+
+def _claim_brief(c: dict) -> dict:
+    from .research.model import state_label
+    return {"id": c["id"], "status": c["status"], "note": c["note"],
+            "lines": f"{c['span']['line_start']}-{c['span']['line_end']}",
+            "claim": f"{state_label(c['subject'])} —{c['predicate']}{' (negated)' if c['negated'] else ''}→ "
+                     f"{state_label(c['object'])}", "type": c["claim_type"], "evidence": c["evidence"],
+            "study": c["study"]["id"], "passage": c["span"]["text"]}
 
 
 class ToolError(Exception):
@@ -27,19 +36,16 @@ class VaultTools:
         self.allow_writes = allow_writes
         self.written: list[str] = []  # files created during this session
         self.framework = cfg.load_framework()
-        self._mech = None
-        self._mech_sig = None
+        self.allow_research_proposals = allow_writes
+        self._ws = None
 
-    def _model(self):
+    def _workspace(self):
         if self.framework is None:
-            raise ToolError("No framework configured (set `framework = \"…toml\"` in cairn.toml).")
-        from .mechanism import MechanismModel
-        sig = tuple(self.store.db.execute(
-            "SELECT (SELECT COUNT(*) || ':' || IFNULL(MAX(rowid), 0) FROM mech_claims WHERE framework=?), "
-            "(SELECT COUNT(*) FROM mech_alias WHERE framework=?)", (self.framework.id, self.framework.id)).fetchone())
-        if self._mech is None or sig != self._mech_sig:
-            self._mech, self._mech_sig = MechanismModel(self.store, self.framework), sig
-        return self._mech
+            raise ToolError("No framework configured (set `framework = \"…/framework.toml\"` in cairn.toml).")
+        if self._ws is None:
+            from .research.workspace import Workspace
+            self._ws = Workspace(self.cfg, self.store, self.framework)
+        return self._ws
 
     # ---- helpers --------------------------------------------------------
     def _resolve(self, note_id: str) -> dict:
@@ -224,32 +230,116 @@ class VaultTools:
             "stale_topics": [t["id"] for t in self.store.topics() if t["stale"]],
         }
 
-    # ---- framework lens tools ------------------------------------------
-    def mechanism_overview(self) -> dict:
-        """The framework lens: scales, how many entities each holds, loop consistency, natural chain targets."""
-        return self._model().overview()
+    # ---- research workspace tools ------------------------------------
+    def research_overview(self) -> dict:
+        """The research workspace: framework version, claim counts by status, entities per scale, questions,
+        and cases by type and review status."""
+        ws = self._workspace()
+        m = ws.model()
+        status = {}
+        for c in ws.recs.all_claims():
+            status[c["status"]] = status.get(c["status"], 0) + 1
+        lanes = {}
+        for e in m.entities:
+            for sc in m.entity_scales(e):
+                lanes.setdefault(sc, []).append(e)
+        return {"framework": ws.fw.ref, "purpose": ws.fw.purpose, "claims_by_status": status,
+                "scales": {sc: sorted(lanes.get(sc, []))[:15] for sc in ws.fw.scale_ids + ["unmapped"]},
+                "questions": [{"id": d["fm"]["id"], "question": d["fm"]["question"], "target": d["fm"].get("target")}
+                              for d in ws.recs.docs("questions") if d["fm"].get("type") == "question"],
+                "cases": [{"id": c["id"], "type": c["type"], "status": c["status"], "title": c["title"]}
+                          for c in ws.case_records()]}
 
-    def mechanism_entity(self, name: str) -> dict:
-        """One entity in the multi-scale model: its scale, upstream causes, downstream effects, associations
-        (each with sign, confidence, quotes and source notes) and the incoherent loops it sits in."""
-        rep = self._model().entity_report(name)
-        if rep is None:
-            sugg = [e for e in self._model().entities if name.lower() in e.lower()][:8]
-            raise ToolError(f"No entity '{name}'." + (f" Similar: {sugg}" if sugg else ""))
-        return rep
+    def find_claims(self, entity: str | None = None, note: str | None = None, status: str | None = None,
+                    text: str | None = None, limit: int = 30) -> list[dict]:
+        """Claims filtered by entity (any alias), source note, review status, or words in the passage."""
+        ws = self._workspace()
+        m = ws.model(statuses=("proposed", "accepted", "deferred", "stale", "rejected", "superseded", "source_missing"))
+        ent = m.find_entity(entity) if entity else None
+        out = []
+        for c in ws.recs.all_claims():
+            if ent and ent not in (m.canonical(c["subject"]["entity"]), m.canonical(c["object"]["entity"])):
+                continue
+            if note and c["note"] != note:
+                continue
+            if status and c["status"] != status:
+                continue
+            if text and text.lower() not in c["span"]["text"].lower():
+                continue
+            out.append(_claim_brief(c))
+        return out[:limit]
 
-    def mechanism_chains(self, target: str, source: str | None = None, k: int = 5) -> list[dict]:
-        """Best chains of claims climbing the framework's scales and ending at `target` (optionally starting
-        at `source`), with per-step evidence, missing scales and open points to test."""
-        m = self._model()
+    def get_claim(self, claim_id: str) -> dict:
+        """One claim with its source passage (and surrounding lines from the current note), context,
+        study, review history, and the other claims about the same pair that support or challenge it."""
+        from .research.records import read_note_text
+        ws = self._workspace()
+        c = ws.recs.claim(claim_id)
+        if c is None:
+            raise ToolError(f"No claim {claim_id}")
+        m = ws.model()
+        text = read_note_text(self.cfg, self.store.note(c["note"])["path"]) if self.store.note(c["note"]) else None
+        around = ""
+        if text and c["span"]["line_start"]:
+            lines = text.splitlines()
+            lo, hi = max(0, c["span"]["line_start"] - 3), min(len(lines), c["span"]["line_end"] + 2)
+            around = "\n".join(f"{i + 1:>4}  {lines[i]}" for i in range(lo, hi))
+        link = next((l for l in m.links if l.id == claim_id), None)
+        related = []
+        if link:
+            for other in m.links_between(link.subj, link.obj):
+                if other.id != claim_id:
+                    rel = "same direction" if other.sign == link.sign and other.kind != "null" else (
+                        "no effect reported" if other.kind == "null" else "opposite direction")
+                    related.append({"id": other.id, "relation": rel, "study": other.study, "status": other.claim["status"]})
+        return {**c, "read_as": link.kind if link else None, "sign": link.sign if link else None,
+                "model_notes": (link.notes + link.assumptions) if link else [], "source_excerpt": around,
+                "reviews": [r for r in ws.recs.reviews() if r["target"] == claim_id], "related_claims": related}
+
+    def list_cases(self, case_type: str | None = None, status: str | None = None) -> list[dict]:
+        """Reasoning cases (potential tensions, conflicting results, triangulations, missing bridges, agent
+        findings) with their review status."""
+        return [c for c in self._workspace().case_records()
+                if (not case_type or c["type"] == case_type) and (not status or c["status"] == status)]
+
+    def get_case(self, case_id: str) -> dict:
+        """A case record: claims involved, missing premises, assumptions, competing explanations and
+        distinguishing evidence."""
+        d = self._workspace().recs.doc("cases", case_id)
+        if d is None:
+            raise ToolError(f"No case {case_id}")
+        return {"frontmatter": d["fm"], "text": d["body"].split("<!-- reviewer-notes")[0]}
+
+    def inspect_path(self, target: str, source: str | None = None) -> list[dict]:
+        """Candidate reading paths from a perturbation (or the lowest scale) to `target`, each step marked
+        Supported / Assumed / Challenged / Missing with its claims."""
+        from .research import narratives as N
+        ws = self._workspace()
+        m = ws.model()
         if m.find_entity(target) is None:
-            raise ToolError(f"No entity '{target}'. Likely targets: {m.default_targets()}")
-        return m.chains(target, source=source, k=k)
+            raise ToolError(f"No entity '{target}'.")
+        paths = N.candidate_paths(m, target, source, N.challenged_pairs(ws.case_records()))
+        return [{"steps": p, "coverage": N.coverage(m, p)} for p in N.competing(paths, k=3)]
 
-    def mechanism_consistency(self, entity: str | None = None) -> dict:
-        """Triangulation: loops whose signs multiply to '-' (incoherent), links with conflicting claims,
-        and the best-triangulated links. Optionally restricted to loops through one entity."""
-        return self._model().consistency(entity)
+    def compose_context(self, question_id: str) -> dict:
+        """The evidence package for a research question: candidate narratives, selected claims with passages,
+        counterevidence, relevant cases, gaps, assumptions, exclusions and a token estimate."""
+        from .research import narratives as N
+        ws = self._workspace()
+        return N.compose_context(ws.model(), ws.question(question_id), ws.case_records())
+
+    def propose_case(self, title: str, claim_ids: list[str], reasoning: str, explanations: str,
+                     evidence_request: str) -> dict:
+        """Propose a reasoning case for human review (a gap, tension or overlooked connection), citing
+        claim ids. It is stored with status 'proposed'; nothing is accepted automatically."""
+        if not self.allow_research_proposals:
+            raise ToolError("Proposals are disabled for this session.")
+        try:
+            res = self._workspace().propose_case(title, claim_ids, reasoning, explanations, evidence_request)
+        except ValueError as e:
+            raise ToolError(str(e)) from e
+        self.written.append(res["path"])
+        return res
 
     # ---- write tools (agent knowledge layer; never touch human prose) ---
     def _require_writes(self) -> None:
@@ -303,7 +393,8 @@ def _schema(props: dict, required: list[str]) -> dict:
 _S = {"type": "string"}
 _I = {"type": "integer"}
 
-# (name, group, input schema); group is "read", "mech" (needs a framework) or "write"
+# (name, group, input schema); group is "read", "research" (needs a framework), "propose"
+# (research proposals for review) or "write" (navigation-layer notes and relations)
 TOOL_SPECS = [
     ("overview", "read", _schema({}, [])),
     ("search", "read", _schema({"query": _S, "limit": _I, "tag": _S, "topic": _S}, ["query"])),
@@ -314,10 +405,16 @@ TOOL_SPECS = [
     ("list_notes", "read", _schema({"tag": _S, "topic": _S,
                                     "sort": {"type": "string", "enum": ["rank", "recent", "title"]}, "limit": _I}, [])),
     ("maintenance_report", "read", _schema({}, [])),
-    ("mechanism_overview", "mech", _schema({}, [])),
-    ("mechanism_entity", "mech", _schema({"name": _S}, ["name"])),
-    ("mechanism_chains", "mech", _schema({"target": _S, "source": _S, "k": _I}, ["target"])),
-    ("mechanism_consistency", "mech", _schema({"entity": _S}, [])),
+    ("research_overview", "research", _schema({}, [])),
+    ("find_claims", "research", _schema({"entity": _S, "note": _S, "status": _S, "text": _S, "limit": _I}, [])),
+    ("get_claim", "research", _schema({"claim_id": _S}, ["claim_id"])),
+    ("list_cases", "research", _schema({"case_type": _S, "status": _S}, [])),
+    ("get_case", "research", _schema({"case_id": _S}, ["case_id"])),
+    ("inspect_path", "research", _schema({"target": _S, "source": _S}, ["target"])),
+    ("compose_context", "research", _schema({"question_id": _S}, ["question_id"])),
+    ("propose_case", "propose", _schema({"title": _S, "claim_ids": {"type": "array", "items": _S}, "reasoning": _S,
+                                         "explanations": _S, "evidence_request": _S},
+                                        ["title", "claim_ids", "reasoning", "explanations", "evidence_request"])),
     ("add_relation", "write", _schema({"src": _S, "dst": _S, "type": {"type": "string", "enum": RELATION_TYPES},
                                        "reason": _S}, ["src", "dst", "type", "reason"])),
     ("write_note", "write", _schema({"kind": {"type": "string", "enum": WRITE_KINDS},
@@ -332,7 +429,9 @@ def tool_description(name: str) -> str:
 
 
 def available_tools(tools: VaultTools) -> list[str]:
-    groups = {"read"} | ({"write"} if tools.allow_writes else set()) | ({"mech"} if tools.framework else set())
+    groups = {"read"} | ({"write"} if tools.allow_writes else set())
+    if tools.framework:
+        groups |= {"research"} | ({"propose"} if tools.allow_research_proposals else set())
     return [name for name, group, _ in TOOL_SPECS if group in groups]
 
 

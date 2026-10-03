@@ -1,0 +1,163 @@
+# Typed definition of the disease-mechanism framework. The readable guide is guide.md.
+# Bump `version` whenever you change anything here: analyses pin the version they used, and
+# `cairn research framework --impact` lists what a new version touches.
+
+id = "disease-mechanism"
+version = 2
+name = "Multi-scale disease mechanism"
+purpose = "Explain how molecular changes relate to disease phenotypes, with every step traceable to evidence."
+guide = "guide.md"
+
+questions = [
+  "Which supported paths connect a molecular perturbation to the phenotype?",
+  "Which bridges are missing, challenged, or context-dependent?",
+  "Which observation would distinguish the leading explanations?",
+]
+
+# Every claim records these; unknown values stay null.
+context_fields = ["species", "cell_type", "tissue", "intervention", "time", "assay"]
+# Claims are only compared directly when these agree (unknown values become assumptions).
+context_match = ["species", "cell_type"]
+
+views = ["framework_map", "evidence_inspector", "competing_narratives"]
+
+[[scales]]
+id = "gene"
+name = "Genes & variants"
+description = "Genes, alleles, mutations, regulatory variants."
+
+[[scales]]
+id = "protein_domain"
+name = "Protein domains"
+description = "Domains, motifs, residues, binding and modification sites."
+
+[[scales]]
+id = "protein"
+name = "Proteins"
+description = "Gene products: activity, abundance, localisation."
+
+[[scales]]
+id = "protein_complex"
+name = "Protein complexes"
+description = "Multi-protein assemblies."
+
+[[scales]]
+id = "signaling_pathway"
+name = "Signaling pathways"
+description = "Cascades and regulatory networks."
+
+[[scales]]
+id = "cellular_program"
+name = "Cellular programs"
+description = "Coordinated programs: differentiation, activation states, inflammation, senescence."
+
+[[scales]]
+id = "cell_behavior"
+name = "Cell behaviours"
+description = "Proliferation, migration, death, secretion, contraction."
+
+[[scales]]
+id = "tissue_behavior"
+name = "Tissue behaviours"
+description = "Fibrosis, barrier integrity, remodelling, infiltration."
+
+[[scales]]
+id = "system_behavior"
+name = "System behaviours"
+description = "Organ and physiological function, e.g. filtration, immune response."
+
+[[scales]]
+id = "organism_condition"
+name = "Organism conditions"
+description = "Diseases, syndromes, clinical phenotypes, progression."
+
+[[relations]]
+id = "activates"
+kind = "causal"
+sign = 1
+description = "raising the subject raises the object"
+
+[[relations]]
+id = "inhibits"
+kind = "causal"
+sign = -1
+description = "raising the subject lowers the object"
+
+[[relations]]
+id = "contributes_to"
+kind = "causal"
+sign = 1
+description = "the subject is (part of) a cause of the object, e.g. a process of a disease"
+
+[[relations]]
+id = "associated_with"
+kind = "associative"
+sign = 0
+description = "co-occur or co-vary; the sign comes from the participants' directions"
+
+[[relations]]
+id = "observed_in"
+kind = "associative"
+sign = 1
+description = "the subject state is found in the object (e.g. in a condition or tissue)"
+
+[[relations]]
+id = "encodes"
+kind = "compositional"
+sign = 0
+description = "gene encodes product"
+
+[[relations]]
+id = "part_of"
+kind = "compositional"
+sign = 0
+description = "subject is a component of the object"
+
+[[evidence]]
+id = "intervention"
+weight = 1.0
+supports_causal = true
+description = "perturbation: knockout, knockdown, overexpression, inhibitor, CRISPR, rescue"
+
+[[evidence]]
+id = "genetic"
+weight = 0.8
+supports_causal = true
+description = "human genetics, Mendelian randomization, model-organism mutants"
+
+[[evidence]]
+id = "observational"
+weight = 0.4
+supports_causal = false
+description = "correlation in samples, cohorts, imaging, expression data"
+
+[[evidence]]
+id = "computational"
+weight = 0.3
+supports_causal = false
+description = "network inference, modelling, prediction"
+
+[[evidence]]
+id = "stated"
+weight = 0.2
+supports_causal = false
+description = "asserted without data (background, review statements, author interpretation)"
+
+# Checks: prerequisites and limits are documented in src/cairn/research/checks.py.
+[[checks]]
+id = "conditional_sign_tension"
+max_loop = 4
+description = "loops whose signs multiply to '-'; potential unless every link is causal"
+
+[[checks]]
+id = "conflicting_result"
+description = "opposite or null results for the same pair from different studies"
+
+[[checks]]
+id = "independent_evidence"
+min_studies = 2
+description = "agreement from independent studies; repeated reports of one study count once"
+
+[[checks]]
+id = "missing_bridge"
+description = "top-scale entities reached only by association"

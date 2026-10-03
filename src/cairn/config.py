@@ -20,7 +20,8 @@ class Config:
     effort: str = "medium"  # effort for bulk per-note calls (enrich / link)
     agent_effort: str = "high"  # effort for exploratory agent runs (ask / insights)
     max_workers: int = 4  # parallel LLM calls for bulk passes
-    framework: str = ""  # path (relative to the vault) of a framework TOML; enables `cairn mech`
+    framework: str = ""  # path (relative to the vault) of a framework TOML; enables `cairn research`
+    research_dir: str = "_research"  # claims, mappings, cases, narratives, questions, views
 
     @property
     def state_dir(self) -> Path:
@@ -31,6 +32,10 @@ class Config:
         return self.state_dir / "index.db"
 
     @property
+    def research_path(self) -> Path:
+        return self.root / self.research_dir
+
+    @property
     def out_path(self) -> Path:
         return self.root / self.output_dir
 
@@ -38,7 +43,7 @@ class Config:
         """The configured Framework, or None."""
         if not self.framework:
             return None
-        from .framework import load_framework_file
+        from .research.framework import load_framework_file
         path = Path(self.framework).expanduser()
         path = path if path.is_absolute() else self.root / path
         if not path.exists():
@@ -60,4 +65,5 @@ def load_config(root: str | Path) -> Config:
             if key in known:
                 setattr(cfg, key, value)
     cfg.output_dir = cfg.output_dir.strip("/")
+    cfg.research_dir = cfg.research_dir.strip("/")
     return cfg
