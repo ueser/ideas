@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "notes": {
+      "command": "cairn",
+      "args": ["-C", "/path/to/your/notes", "mcp"]
+    }
+  }
+}

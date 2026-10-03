@@ -1,0 +1,51 @@
+"""Vault configuration, read from an optional `cairn.toml` at the vault root."""
+
+from __future__ import annotations
+
+import tomllib
+from dataclasses import dataclass, field, fields
+from pathlib import Path
+
+
+@dataclass
+class Config:
+    root: Path
+    output_dir: str = "_cairn"  # where generated navigation notes live
+    exclude: list[str] = field(default_factory=list)  # extra glob patterns to skip
+    link_style: str = "wiki"  # wiki ([[id|Title]]) or markdown ([Title](path.md))
+    write_note_blocks: bool = False  # append a managed "connections" block to each note
+    related_k: int = 6  # related notes computed per note
+    min_similarity: float = 0.12  # similarity floor for "related" edges
+    model: str = "claude-opus-5-5"
+    effort: str = "medium"  # effort for bulk per-note calls (enrich / link)
+    agent_effort: str = "high"  # effort for exploratory agent runs (ask / insights)
+    max_workers: int = 4  # parallel LLM calls for bulk passes
+
+    @property
+    def state_dir(self) -> Path:
+        return self.root / ".cairn"
+
+    @property
+    def db_path(self) -> Path:
+        return self.state_dir / "index.db"
+
+    @property
+    def out_path(self) -> Path:
+        return self.root / self.output_dir
+
+
+def load_config(root: str | Path) -> Config:
+    root = Path(root).resolve()
+    if not root.is_dir():
+        raise SystemExit(f"cairn: vault folder not found: {root}")
+    cfg = Config(root=root)
+    toml_path = root / "cairn.toml"
+    if toml_path.exists():
+        data = tomllib.loads(toml_path.read_text())
+        data = data.get("cairn", data)
+        known = {f.name for f in fields(Config)} - {"root"}
+        for key, value in data.items():
+            if key in known:
+                setattr(cfg, key, value)
+    cfg.output_dir = cfg.output_dir.strip("/")
+    return cfg

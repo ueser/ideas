@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cairn-notes"
+version = "0.1.0"
+description = "An agentic harness that organises a folder of markdown notes so humans and AI agents can navigate it, find connections and derive insights."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+yaml = ["PyYAML>=6"]
+ai = ["anthropic>=1.11"]
+mcp = ["mcp>=1.20"]
+all = ["PyYAML>=6", "anthropic>=1.11", "mcp>=1.20"]
+dev = ["pytest>=8", "PyYAML>=6", "anthropic>=1.11", "mcp>=1.20"]
+
+[project.scripts]
+cairn = "cairn.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
