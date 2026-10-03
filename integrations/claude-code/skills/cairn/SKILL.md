@@ -20,10 +20,15 @@ and `AGENTS.md`. Human notes are the source of truth; the navigation layer is re
    (supports / contradicts / extends / …) and similar notes not yet linked.
 5. Connect: `cairn path <a> <b>` shows the chain of links/relations between two notes.
 
-6. Framework lens (if `cairn.toml` sets `framework`): `cairn mech overview` (entities per
-   scale), `cairn mech entity <name>` (causes, effects, quotes, loops), `cairn mech chains --to
-   <target>` (chains up the scales, with open points), `cairn mech check` (incoherent loops:
-   signs around a loop must multiply to +; suspect links are listed with their contexts).
+6. Research workspace (if `cairn.toml` sets `framework`):
+   - `cairn research claim <id>` shows a claim with its exact passage, context, study and reviews.
+   - `cairn research cases` lists tensions, conflicts, triangulations and missing bridges.
+     `cairn research case <id>` shows one: premises, assumptions, competing explanations.
+   - `cairn research path --to <target> [--from <source>]` gives reading paths. Each step is
+     Supported, Assumed, Challenged or Missing.
+   - `cairn research context <question-id>` is the evidence package to work from.
+   Never upgrade a step's status in what you write: an Assumed or Missing step stays that way
+   unless you cite a claim that changes it. Propose, don't accept: review decisions belong to the user.
 
 Add `--json` to any command for structured output. Run commands from the notes folder or
 pass `-C <folder>`.

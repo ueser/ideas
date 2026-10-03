@@ -11,8 +11,10 @@ from .tools import VaultTools, available_tools, tool_description
 
 INSTRUCTIONS = """Tools for navigating a collection of markdown notes organised by cairn.
 Start with `overview` for the map of topics, then `topic`, `search`, `read_note` and `note_links`.
-Use `find_path` to see how two ideas connect. If mechanism_* tools are present, a framework lens is
-configured: they expose claims organised by scale, chains up the scales, and loop consistency.
+Use `find_path` to see how two ideas connect. If research tools are present (research_overview, get_claim,
+list_cases, inspect_path, compose_context), a framework is configured: claims are anchored to source
+passages, cases record tensions and gaps for review, and narratives mark each step Supported / Assumed /
+Challenged / Missing.
 Cite notes by id when you report findings."""
 
 

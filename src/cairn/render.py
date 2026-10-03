@@ -58,7 +58,7 @@ class Renderer:
         self.tools = VaultTools(cfg, store)
         self.titles = store.titles()
         self.changed: list[str] = []
-        self.mech = None
+        self.research = None
 
     def L(self, nid: str, at: Path) -> str:
         return link(self.cfg, nid, self.titles.get(nid, nid), at)
@@ -77,11 +77,7 @@ class Renderer:
         for t in topics:
             self.render_topic(t)
         self.cleanup(self.cfg.out_path / "topics", {t["id"] for t in topics})
-        self.mech = self._mechanism_model()
-        if self.mech is not None:
-            from .mechanism_render import MechanismRenderer
-            self.mech_r = MechanismRenderer(self, self.mech)
-            self.mech_r.render()
+        self.research = self._research_views()
         self.titles = self.store.titles()  # topic pages were (re)created
         self.render_index(topics)
         self.render_maintenance()
@@ -119,13 +115,14 @@ class Renderer:
         lines.append(f"\n← {link(self.cfg, f'{self.cfg.output_dir}/INDEX', 'Index', path)}")
         self._put(path, "\n".join(lines) + "\n")
 
-    def _mechanism_model(self):
-        fw = self.tools.framework
-        if fw is None or not self.store.db.execute(
-                "SELECT 1 FROM mech_claims WHERE framework=? LIMIT 1", (fw.id,)).fetchone():
+    def _research_views(self) -> dict | None:
+        """Regenerate the research workspace views when a framework is configured and claims exist."""
+        if not self.cfg.framework or not (self.cfg.research_path / "records" / "claims").is_dir():
             return None
-        from .mechanism import MechanismModel
-        return MechanismModel(self.store, fw)
+        from .research.workspace import Workspace
+        ws = Workspace(self.cfg, self.store)
+        self.changed += ws.render()
+        return {"framework": ws.fw, "claims": len(ws.recs.all_claims()), "cases": len(ws.recs.docs("cases"))}
 
     def cleanup(self, folder: Path, keep: set[str]) -> None:
         """Remove generated pages in `folder` that are no longer produced; hand-written files stay."""
@@ -144,12 +141,12 @@ class Renderer:
         lines.append(f"{st.get('notes', 0)} notes · {len(topics)} topics · {st.get('links', 0)} links · "
                      f"{st.get('relations', 0)} typed relations · updated {dt.date.today().isoformat()}\n")
         lines.append(f"Agents: read {link(self.cfg, f'{self.cfg.output_dir}/AGENTS', 'AGENTS', path)} first.\n")
-        if self.mech is not None:
-            fw = self.mech.fw
-            mo = self.mech.overview()
-            lines.append(f"## Framework: {link(self.cfg, f'{self.cfg.output_dir}/{fw.id}/index', fw.name, path)}\n")
-            lines.append(f"{mo['claims']} claims · {mo['entities']} entities across {len(fw.scales)} scales · "
-                         f"{mo['incoherent_loops']} incoherent loops\n")
+        if self.research is not None:
+            fw = self.research["framework"]
+            lines.append(f"## Research workspace: "
+                         f"{link(self.cfg, f'{self.cfg.research_dir}/views/index', fw.name, path)}\n")
+            lines.append(f"{self.research['claims']} evidence-linked claims · {self.research['cases']} cases · "
+                         f"framework {fw.ref}\n")
         lines.append("## Topics\n")
         for t in topics:
             members = self.store.topic_members(t["id"])[:4]
@@ -203,10 +200,15 @@ class Renderer:
         if n["topic"]:
             t = self.store.topic(n["topic"])
             parts.append(f"Topic: {link(self.cfg, self.topic_id_path(n['topic']), t['label'] if t else n['topic'], path)}")
-        if self.mech is not None:
-            ents = self.mech.note_entities(n["id"])
-            if ents:
-                parts.append(f"{self.mech.fw.name}: " + ", ".join(self.mech_r.E(e, path) for e in ents[:12]))
+        if self.research is not None:
+            from .research.records import Records
+            claims = Records(self.cfg).note_claims(n["id"])
+            if claims:
+                by = {}
+                for c in claims:
+                    by[c["status"]] = by.get(c["status"], 0) + 1
+                parts.append("Claims: " + ", ".join(f"{v} {k}" for k, v in sorted(by.items())) +
+                             f" ({link(self.cfg, f'{self.cfg.research_dir}/views/review-queue', 'review', path)})")
         if info["backlinks"]:
             parts.append("Backlinks: " + ", ".join(self.L(b["id"], path) for b in info["backlinks"][:12]))
         rel_lines = []
@@ -242,10 +244,12 @@ Navigation files are regenerated; human notes are the source of truth.
 - `{od}/topics/<topic>.md` — a map of one cluster of related notes, with summaries,
   typed relations (supports / contradicts / extends / …) and open questions.
 - `{od}/maintenance.md` — broken links, orphans, duplicates, contradictions.
-- `{od}/<framework>/` — present when a framework is configured: entity cards, one page
-  per scale, ranked chains up the scales, and a consistency report (incoherent loops, suspect
-  links). Use `cairn mech overview | chains | check | entity` for the same views.
-- `{od}/insights/`, `{od}/answers/`, `{od}/mechanisms/` — derived notes written by agents. Each cites
+- `{self.cfg.research_dir}/` — present when a framework is configured: evidence-linked claims
+  (`records/claims/*.jsonl`), reasoning cases (`cases/`), questions and competing narratives
+  (`questions/`, `narratives/`), and generated views (`views/index.md`, `framework-map.md`,
+  `review-queue.md`). Every claim points to an exact passage; every case and narrative lists the
+  claims it rests on and has a review status. Use `cairn research …` or the research tools.
+- `{od}/insights/`, `{od}/answers/` — derived notes written by agents. Each cites
   its sources; treat them as secondary to the notes they cite.
 - Everything else is a human note. Links use `[[path/to/note|Title]]` (wiki style)
   or relative markdown links.
@@ -260,7 +264,7 @@ Navigation files are regenerated; human notes are the source of truth.
 4. To see how two ideas connect use `cairn path <a> <b>`.
 5. If the `cairn` MCP server is configured, the same operations are available as
    tools: overview, search, read_note, note_links, topic, find_path, list_notes, and the
-   mechanism_* tools when a framework is configured.
+   research tools when a framework is configured.
 
 ## Rules when you write
 

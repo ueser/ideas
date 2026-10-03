@@ -13,7 +13,7 @@ from .store import Store
 from .vault import Resolver, load_vault, slugify
 
 
-NAV_TYPES = {"index", "topic", "maintenance", "guide", "mechanism", "mechanism-scale", "chains", "consistency"}
+NAV_TYPES = {"index", "topic", "maintenance", "guide", "research-view"}
 
 
 def _jaccard(a: set, b: set) -> float:
@@ -22,7 +22,7 @@ def _jaccard(a: set, b: set) -> float:
 
 def build_index(cfg: Config, store: Store) -> dict:
     t0 = time.time()
-    notes = load_vault(cfg.root, cfg.exclude, cfg.output_dir)
+    notes = load_vault(cfg.root, cfg.exclude, (cfg.output_dir, cfg.research_dir))
     db = store.db
 
     # carry the knowledge layer across renames (same content, new path)
@@ -57,8 +57,7 @@ def build_index(cfg: Config, store: Store) -> dict:
                        (n.id, s.anchor, n.title, s.heading, s.text, tag_text))
 
     # drop knowledge about notes that no longer exist
-    for table, cols in (("enrichment", ["note_id"]), ("link_checked", ["note_id"]), ("relations", ["src", "dst"]),
-                        ("mech_claims", ["note_id"]), ("mech_extracted", ["note_id"])):
+    for table, cols in (("enrichment", ["note_id"]), ("link_checked", ["note_id"]), ("relations", ["src", "dst"])):
         for col in cols:
             db.execute(f"DELETE FROM {table} WHERE {col} NOT IN (SELECT id FROM notes)")
     db.commit()
