@@ -7,11 +7,13 @@ import functools
 
 from .config import Config
 from .store import Store
-from .tools import TOOL_SPECS, VaultTools, tool_description
+from .tools import VaultTools, available_tools, tool_description
 
 INSTRUCTIONS = """Tools for navigating a collection of markdown notes organised by cairn.
 Start with `overview` for the map of topics, then `topic`, `search`, `read_note` and `note_links`.
-Use `find_path` to see how two ideas connect. Cite notes by id when you report findings."""
+Use `find_path` to see how two ideas connect. If mechanism_* tools are present, a framework lens is
+configured: they expose claims organised by scale, chains up the scales, and loop consistency.
+Cite notes by id when you report findings."""
 
 
 def build_server(cfg: Config, store: Store, allow_writes: bool = False):
@@ -25,9 +27,7 @@ def build_server(cfg: Config, store: Store, allow_writes: bool = False):
     tools = VaultTools(cfg, store, allow_writes=allow_writes)
     server = FastMCP("cairn", instructions=INSTRUCTIONS)
 
-    for name, write, _schema in TOOL_SPECS:
-        if write and not allow_writes:
-            continue
+    for name in available_tools(tools):
         method = getattr(tools, name)
 
         @functools.wraps(method)

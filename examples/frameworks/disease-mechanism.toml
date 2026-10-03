@@ -1,0 +1,97 @@
+# A framework ("lens") for explaining a disease mechanism across biological scales.
+# Point a vault at it with `framework = "path/to/this.toml"` in cairn.toml.
+
+name = "Multi-scale disease mechanism"
+goal = """Explain how a disease arises as one linear, testable narrative that connects molecular \
+causes to organism-level conditions through every intermediate scale."""
+
+# Ordered lowest -> highest. Scale ids are used in prompts, file names and the CLI.
+[[scales]]
+id = "gene"
+name = "Genes & variants"
+description = "Genes, alleles, mutations, regulatory variants, copy-number changes."
+
+[[scales]]
+id = "protein_domain"
+name = "Protein domains"
+description = "Domains, motifs and residues; binding sites; post-translational modification sites."
+
+[[scales]]
+id = "protein"
+name = "Proteins"
+description = "Individual gene products and their activity, abundance or localisation."
+
+[[scales]]
+id = "complex"
+name = "Protein complexes"
+description = "Stable or transient multi-protein assemblies."
+
+[[scales]]
+id = "pathway"
+name = "Signaling pathways"
+description = "Signaling cascades and regulatory networks (e.g. a growth-factor or stress pathway)."
+
+[[scales]]
+id = "cell_program"
+name = "Cellular programs"
+description = "Coordinated transcriptional or metabolic programs: differentiation, senescence, EMT, inflammation."
+
+[[scales]]
+id = "cell_behavior"
+name = "Cell behaviours"
+description = "Observable behaviours of cells: proliferation, migration, death, secretion, contraction."
+
+[[scales]]
+id = "tissue"
+name = "Tissue behaviours"
+description = "Tissue-level phenomena: fibrosis, barrier integrity, remodelling, infiltration."
+
+[[scales]]
+id = "system"
+name = "System behaviours"
+description = "Organ and physiological-system function: renal filtration, immune response, cardiac output."
+
+[[scales]]
+id = "condition"
+name = "Organism conditions & diseases"
+description = "Diseases, syndromes, clinical phenotypes, severity and progression."
+
+# How much each kind of evidence counts (0-1) and whether it supports causality.
+[[evidence]]
+id = "intervention"
+weight = 1.0
+causal = true
+description = "perturbation experiment: knockout, knockdown, overexpression, inhibitor, CRISPR, rescue"
+
+[[evidence]]
+id = "genetic"
+weight = 0.8
+causal = true
+description = "human genetics, Mendelian randomization, model-organism mutants"
+
+[[evidence]]
+id = "observational"
+weight = 0.4
+causal = false
+description = "correlation in patient samples, cohorts, expression or imaging data"
+
+[[evidence]]
+id = "computational"
+weight = 0.3
+causal = false
+description = "network inference, modelling, prediction"
+
+[[evidence]]
+id = "stated"
+weight = 0.25
+causal = false
+description = "asserted in the note without supporting data (background, review statements)"
+
+guidance = """
+Biology is organised in scales with emergent concepts at each level; claims connect entities within \
+or across scales, causally or correlatively. Use HGNC symbols for human genes and proteins. When a \
+note says a gene product's domain mediates an effect, record the domain (protein_domain) as well as \
+the protein. Record the model system (cell line, organoid, mouse model, patient cohort) as context, \
+because apparent contradictions between notes are often differences in context. Distinguish the \
+disease itself (condition) from its tissue- and system-level manifestations.
+"""

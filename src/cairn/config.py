@@ -20,6 +20,7 @@ class Config:
     effort: str = "medium"  # effort for bulk per-note calls (enrich / link)
     agent_effort: str = "high"  # effort for exploratory agent runs (ask / insights)
     max_workers: int = 4  # parallel LLM calls for bulk passes
+    framework: str = ""  # path (relative to the vault) of a framework TOML; enables `cairn mech`
 
     @property
     def state_dir(self) -> Path:
@@ -32,6 +33,17 @@ class Config:
     @property
     def out_path(self) -> Path:
         return self.root / self.output_dir
+
+    def load_framework(self):
+        """The configured Framework, or None."""
+        if not self.framework:
+            return None
+        from .framework import load_framework_file
+        path = Path(self.framework).expanduser()
+        path = path if path.is_absolute() else self.root / path
+        if not path.exists():
+            raise SystemExit(f"cairn: framework file not found: {path}")
+        return load_framework_file(path)
 
 
 def load_config(root: str | Path) -> Config:

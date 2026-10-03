@@ -264,6 +264,10 @@ def cmd_run(args):
         _err(f"recorded {org.link(limit=args.limit)} relation(s)")
         build_index(cfg, store)  # relations reshape topics
         _err(f"named {org.name_topics()} topic(s)")
+        if cfg.framework:
+            mech = _mech_llm(cfg, store)
+            _err(f"extracted {mech.extract(limit=args.limit)} claim(s) under {mech.fw.name}")
+            _err(f"merged {mech.normalize()} entity name(s)")
     if args.note_blocks:
         cfg.write_note_blocks = True
     changed = Renderer(cfg, store).render_all()
@@ -297,6 +301,137 @@ def cmd_insights(args):
     Renderer(cfg, store).render_all()
     for w in written:
         _err(f"wrote {w}")
+
+
+# ---- framework lens -----------------------------------------------------------
+
+def _framework(cfg):
+    fw = cfg.load_framework()
+    if fw is None:
+        raise ToolError("no framework configured: add `framework = \"path/to/framework.toml\"` to cairn.toml")
+    return fw
+
+
+def _mech_llm(cfg, store):
+    from .agent import Claude
+    from .mech_agent import MechanismOrganizer
+    return MechanismOrganizer(cfg, store, Claude(cfg), _framework(cfg))
+
+
+def cmd_mech_framework(args):
+    cfg = load_config(args.vault)
+    print(_framework(cfg).describe())
+
+
+def cmd_mech_extract(args):
+    cfg, store = _open(args)
+    _fresh(cfg, store)
+    org = _mech_llm(cfg, store)
+    print(f"extracted {org.extract(force=args.force, limit=args.limit)} claim(s)")
+    print(f"merged {org.normalize()} entity name(s)")
+    Renderer(cfg, store).render_all()
+
+
+def cmd_mech_normalize(args):
+    cfg, store = _open(args)
+    print(f"merged {_mech_llm(cfg, store).normalize(force=args.force)} entity name(s)")
+    Renderer(cfg, store).render_all()
+
+
+def cmd_mech_overview(args):
+    cfg, store = _open(args)
+    _fresh(cfg, store)
+    ov = VaultTools(cfg, store).mechanism_overview()
+
+    def human(o):
+        print(f"{o['framework']}: {o['claims']} claims, {o['entities']} entities, {o['links']} links, "
+              f"{o['incoherent_loops']}/{o['loops_checked']} loops incoherent")
+        for i, s in enumerate(o["scales"]):
+            print(f"  {i}. {s['scale']:<22} {s['entities']:>4}  {', '.join(s['top'][:6])}")
+        print("targets: " + ", ".join(o["targets"]))
+    _print(ov, args.json, human)
+
+
+def cmd_mech_entity(args):
+    cfg, store = _open(args)
+    _fresh(cfg, store)
+    rep = VaultTools(cfg, store).mechanism_entity(" ".join(args.name))
+
+    def human(r):
+        print(f"{r['name']}  [{r['scale']}]" + (f"  aka {', '.join(r['aliases'])}" if r["aliases"] else ""))
+        for label, key, fmt in (("upstream", "upstream", "{e} -({s})-> this"),
+                                ("downstream", "downstream", "this -({s})-> {e}"),
+                                ("associated", "associations", "this ~({s})~ {e}")):
+            for it in r[key]:
+                warn = "  CONFLICTING" if it["contested"] else ""
+                print(f"  {label:<11} " + fmt.format(e=it["entity"], s=it["sign"]) +
+                      f"  conf {it['confidence']:.2f}  [{', '.join(it['sources'][:3])}]{warn}")
+        for lp in r["incoherent_loops"]:
+            print("  ✗ incoherent loop: " + " — ".join(lp["loop"]))
+        print(f"  coherent loops: {r['coherent_loops']}")
+    _print(rep, args.json, human)
+
+
+def cmd_mech_chains(args):
+    cfg, store = _open(args)
+    _fresh(cfg, store)
+    tools = VaultTools(cfg, store)
+    target = args.to or (tools.mechanism_overview()["targets"] or [None])[0]
+    if target is None:
+        raise ToolError("no claims yet: run `cairn mech extract`")
+    chains = tools.mechanism_chains(target, source=args.source, k=args.k)
+
+    def human(chs):
+        if not chs:
+            print(f"no chains end at {target}")
+        for i, ch in enumerate(chs, 1):
+            print(f"Chain {i} (score {ch['score']}, scales: {', '.join(ch['scales_covered'])})")
+            for st in ch["steps"]:
+                arrow = "──▶" if st["kind"] == "causal" else "┄┄▶"
+                gap = f"  [skips {', '.join(st['missing_scales'])}]" if st["missing_scales"] else ""
+                print(f"  {st['from']} {arrow}({st['sign']}) {st['to']}   conf {st['confidence']:.2f}{gap}")
+            for p in ch["open_points"]:
+                print(f"    ? {p}")
+            print()
+    _print(chains, args.json, human)
+
+
+def cmd_mech_check(args):
+    cfg, store = _open(args)
+    _fresh(cfg, store)
+    rep = VaultTools(cfg, store).mechanism_consistency(args.entity)
+
+    def human(r):
+        print(f"{r['loops_checked']} loops: {r['coherent']} coherent, {r['incoherent']} incoherent")
+        if r["suspect_links"]:
+            print("suspect links (in more incoherent than coherent loops):")
+            for x in r["suspect_links"][:8]:
+                ctx = f"  contexts: {'; '.join(x['contexts'])}" if x["contexts"] else ""
+                print(f"  ? {x['between'][0]} – {x['between'][1]}  incoherent {x['incoherent_loops']}, "
+                      f"coherent {x['coherent_loops']}, evidence {x['evidence']:.2f}{ctx}")
+        for lp in r["incoherent_loops"]:
+            print("  ✗ " + " — ".join(lp["loop"]))
+            for e in lp["edges"]:
+                print(f"      {e['between'][0]} {e['sign']} {e['between'][1]}  ({'/'.join(e['kinds'])}, "
+                      f"evidence {e['evidence']:.2f}) {', '.join(e['sources'][:3])}")
+            print(f"      suspect: {' – '.join(lp['suspect_link'])}")
+        for c in r["contested_links"]:
+            print(f"  ⚠ conflicting: {c['between'][0]} – {c['between'][1]}  "
+                  f"(+{c['support_plus']} / -{c['support_minus']})")
+    _print(rep, args.json, human)
+
+
+def cmd_mech_narrate(args):
+    cfg, store = _open(args)
+    _fresh(cfg, store)
+    text, written = _mech_llm(cfg, store).narrate(target=args.to, source=args.source,
+                                                  on_event=None if args.quiet else _progress)
+    print(text)
+    if written:
+        build_index(cfg, store)
+        Renderer(cfg, store).render_all()
+        for w in written:
+            _err(f"wrote {w}")
 
 
 def cmd_mcp(args):
@@ -368,6 +503,37 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("-n", type=int, default=3)
     sp.add_argument("--focus")
     sp.add_argument("-q", "--quiet", action="store_true")
+    mech = sub.add_parser("mech", help="framework lens: multi-scale claims, chains, consistency",
+                          description="Read the notes through the framework configured in cairn.toml.")
+    msub = mech.add_subparsers(dest="mech_cmd", required=True)
+
+    def madd(name, fn, help_):
+        sp = msub.add_parser(name, help=help_, description=help_)
+        sp.add_argument("--json", action="store_true", default=argparse.SUPPRESS, help="machine-readable output")
+        sp.set_defaults(fn=fn)
+        return sp
+
+    madd("framework", cmd_mech_framework, "print the configured framework")
+    sp = madd("extract", cmd_mech_extract, "LLM: extract signed claims from changed notes, merge synonyms, render")
+    sp.add_argument("--force", action="store_true")
+    sp.add_argument("--limit", type=int)
+    madd("normalize", cmd_mech_normalize, "LLM: merge synonymous entity names").add_argument(
+        "--force", action="store_true")
+    madd("overview", cmd_mech_overview, "entities per scale, loop consistency, chain targets")
+    madd("entity", cmd_mech_entity, "an entity's causes, effects, associations and loops").add_argument(
+        "name", nargs="+")
+    for name, fn, help_ in (("chains", cmd_mech_chains, "best chains up the scales to a target"),
+                            ("narrate", cmd_mech_narrate,
+                             "LLM agent: write a cited mechanism narrative with testable hypotheses")):
+        sp = madd(name, fn, help_)
+        sp.add_argument("--to", help="target entity (default: most connected top-scale entity)")
+        sp.add_argument("--from", dest="source", help="required starting entity")
+        if name == "chains":
+            sp.add_argument("-k", type=int, default=5)
+        else:
+            sp.add_argument("-q", "--quiet", action="store_true")
+    madd("check", cmd_mech_check, "triangulation: incoherent loops and conflicting links").add_argument(
+        "--entity")
     add("mcp", cmd_mcp, "serve the navigation tools over MCP (stdio)").add_argument(
         "--allow-writes", action="store_true", help="expose add_relation and write_note")
     return p

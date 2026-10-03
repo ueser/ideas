@@ -13,6 +13,9 @@ from .store import RELATION_TYPES, Store
 from .vault import slugify
 
 
+WRITE_KINDS = ["insights", "answers", "questions", "mechanisms"]
+
+
 class ToolError(Exception):
     pass
 
@@ -23,6 +26,20 @@ class VaultTools:
         self.store = store
         self.allow_writes = allow_writes
         self.written: list[str] = []  # files created during this session
+        self.framework = cfg.load_framework()
+        self._mech = None
+        self._mech_sig = None
+
+    def _model(self):
+        if self.framework is None:
+            raise ToolError("No framework configured (set `framework = \"…toml\"` in cairn.toml).")
+        from .mechanism import MechanismModel
+        sig = tuple(self.store.db.execute(
+            "SELECT (SELECT COUNT(*) || ':' || IFNULL(MAX(rowid), 0) FROM mech_claims WHERE framework=?), "
+            "(SELECT COUNT(*) FROM mech_alias WHERE framework=?)", (self.framework.id, self.framework.id)).fetchone())
+        if self._mech is None or sig != self._mech_sig:
+            self._mech, self._mech_sig = MechanismModel(self.store, self.framework), sig
+        return self._mech
 
     # ---- helpers --------------------------------------------------------
     def _resolve(self, note_id: str) -> dict:
@@ -207,6 +224,33 @@ class VaultTools:
             "stale_topics": [t["id"] for t in self.store.topics() if t["stale"]],
         }
 
+    # ---- framework lens tools ------------------------------------------
+    def mechanism_overview(self) -> dict:
+        """The framework lens: scales, how many entities each holds, loop consistency, natural chain targets."""
+        return self._model().overview()
+
+    def mechanism_entity(self, name: str) -> dict:
+        """One entity in the multi-scale model: its scale, upstream causes, downstream effects, associations
+        (each with sign, confidence, quotes and source notes) and the incoherent loops it sits in."""
+        rep = self._model().entity_report(name)
+        if rep is None:
+            sugg = [e for e in self._model().entities if name.lower() in e.lower()][:8]
+            raise ToolError(f"No entity '{name}'." + (f" Similar: {sugg}" if sugg else ""))
+        return rep
+
+    def mechanism_chains(self, target: str, source: str | None = None, k: int = 5) -> list[dict]:
+        """Best chains of claims climbing the framework's scales and ending at `target` (optionally starting
+        at `source`), with per-step evidence, missing scales and open points to test."""
+        m = self._model()
+        if m.find_entity(target) is None:
+            raise ToolError(f"No entity '{target}'. Likely targets: {m.default_targets()}")
+        return m.chains(target, source=source, k=k)
+
+    def mechanism_consistency(self, entity: str | None = None) -> dict:
+        """Triangulation: loops whose signs multiply to '-' (incoherent), links with conflicting claims,
+        and the best-triangulated links. Optionally restricted to loops through one entity."""
+        return self._model().consistency(entity)
+
     # ---- write tools (agent knowledge layer; never touch human prose) ---
     def _require_writes(self) -> None:
         if not self.allow_writes:
@@ -224,8 +268,8 @@ class VaultTools:
     def write_note(self, kind: str, title: str, body: str, sources: list[str]) -> dict:
         """Create a new note (insight / answer / question) inside the generated folder, citing sources."""
         self._require_writes()
-        if kind not in ("insights", "answers", "questions"):
-            raise ToolError("kind must be insights, answers or questions")
+        if kind not in WRITE_KINDS:
+            raise ToolError(f"kind must be one of {WRITE_KINDS}")
         cited = [self._resolve(s)["id"] for s in sources]
         if not cited:
             raise ToolError("cite at least one source note")
@@ -259,21 +303,26 @@ def _schema(props: dict, required: list[str]) -> dict:
 _S = {"type": "string"}
 _I = {"type": "integer"}
 
+# (name, group, input schema); group is "read", "mech" (needs a framework) or "write"
 TOOL_SPECS = [
-    ("overview", False, _schema({}, [])),
-    ("search", False, _schema({"query": _S, "limit": _I, "tag": _S, "topic": _S}, ["query"])),
-    ("read_note", False, _schema({"note_id": _S, "section": _S}, ["note_id"])),
-    ("note_links", False, _schema({"note_id": _S}, ["note_id"])),
-    ("topic", False, _schema({"topic_id": _S}, ["topic_id"])),
-    ("find_path", False, _schema({"from_note": _S, "to_note": _S}, ["from_note", "to_note"])),
-    ("list_notes", False, _schema({"tag": _S, "topic": _S, "sort": {"type": "string", "enum": ["rank", "recent", "title"]},
-                                   "limit": _I}, [])),
-    ("maintenance_report", False, _schema({}, [])),
-    ("add_relation", True, _schema({"src": _S, "dst": _S, "type": {"type": "string", "enum": RELATION_TYPES},
-                                    "reason": _S}, ["src", "dst", "type", "reason"])),
-    ("write_note", True, _schema({"kind": {"type": "string", "enum": ["insights", "answers", "questions"]},
-                                  "title": _S, "body": _S, "sources": {"type": "array", "items": _S}},
-                                 ["kind", "title", "body", "sources"])),
+    ("overview", "read", _schema({}, [])),
+    ("search", "read", _schema({"query": _S, "limit": _I, "tag": _S, "topic": _S}, ["query"])),
+    ("read_note", "read", _schema({"note_id": _S, "section": _S}, ["note_id"])),
+    ("note_links", "read", _schema({"note_id": _S}, ["note_id"])),
+    ("topic", "read", _schema({"topic_id": _S}, ["topic_id"])),
+    ("find_path", "read", _schema({"from_note": _S, "to_note": _S}, ["from_note", "to_note"])),
+    ("list_notes", "read", _schema({"tag": _S, "topic": _S,
+                                    "sort": {"type": "string", "enum": ["rank", "recent", "title"]}, "limit": _I}, [])),
+    ("maintenance_report", "read", _schema({}, [])),
+    ("mechanism_overview", "mech", _schema({}, [])),
+    ("mechanism_entity", "mech", _schema({"name": _S}, ["name"])),
+    ("mechanism_chains", "mech", _schema({"target": _S, "source": _S, "k": _I}, ["target"])),
+    ("mechanism_consistency", "mech", _schema({"entity": _S}, [])),
+    ("add_relation", "write", _schema({"src": _S, "dst": _S, "type": {"type": "string", "enum": RELATION_TYPES},
+                                       "reason": _S}, ["src", "dst", "type", "reason"])),
+    ("write_note", "write", _schema({"kind": {"type": "string", "enum": WRITE_KINDS},
+                                     "title": _S, "body": _S, "sources": {"type": "array", "items": _S}},
+                                    ["kind", "title", "body", "sources"])),
 ]
 
 
@@ -282,13 +331,19 @@ def tool_description(name: str) -> str:
     return re.sub(r"\s+", " ", doc).strip()
 
 
-def tool_definitions(include_writes: bool) -> list[dict]:
+def available_tools(tools: VaultTools) -> list[str]:
+    groups = {"read"} | ({"write"} if tools.allow_writes else set()) | ({"mech"} if tools.framework else set())
+    return [name for name, group, _ in TOOL_SPECS if group in groups]
+
+
+def tool_definitions(tools: VaultTools) -> list[dict]:
+    names = set(available_tools(tools))
     return [{"name": name, "description": tool_description(name), "input_schema": schema}
-            for name, write, schema in TOOL_SPECS if include_writes or not write]
+            for name, _, schema in TOOL_SPECS if name in names]
 
 
 def call_tool(tools: VaultTools, name: str, args: dict):
-    if name not in {n for n, _, _ in TOOL_SPECS}:
+    if name not in available_tools(tools):
         raise ToolError(f"unknown tool {name}")
     return getattr(tools, name)(**args)
 

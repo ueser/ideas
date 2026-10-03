@@ -36,6 +36,16 @@ CREATE TABLE IF NOT EXISTS topic_meta (
   id TEXT PRIMARY KEY, name TEXT, synopsis TEXT, questions TEXT, members TEXT, updated REAL
 );
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+-- framework lens: claims extracted per note, and entity synonym map
+CREATE TABLE IF NOT EXISTS mech_claims (
+  framework TEXT, note_id TEXT, subject TEXT, subject_scale TEXT, subject_change TEXT, kind TEXT,
+  object TEXT, object_scale TEXT, object_change TEXT, evidence TEXT, context TEXT, quote TEXT, confidence REAL
+);
+CREATE INDEX IF NOT EXISTS mech_claims_fw ON mech_claims(framework, note_id);
+CREATE TABLE IF NOT EXISTS mech_extracted (
+  framework TEXT, note_id TEXT, hash TEXT, fw_hash TEXT, scales TEXT, PRIMARY KEY (framework, note_id)
+);
+CREATE TABLE IF NOT EXISTS mech_alias (framework TEXT, alias TEXT, canonical TEXT, PRIMARY KEY (framework, alias));
 """
 
 RELATION_TYPES = [
@@ -239,3 +249,5 @@ class Store:
         self.db.execute("UPDATE OR IGNORE relations SET src=? WHERE src=?", (new, old))
         self.db.execute("UPDATE OR IGNORE relations SET dst=? WHERE dst=?", (new, old))
         self.db.execute("UPDATE OR IGNORE link_checked SET note_id=? WHERE note_id=?", (new, old))
+        self.db.execute("UPDATE mech_claims SET note_id=? WHERE note_id=?", (new, old))
+        self.db.execute("UPDATE OR IGNORE mech_extracted SET note_id=? WHERE note_id=?", (new, old))

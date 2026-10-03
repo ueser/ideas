@@ -92,7 +92,9 @@ establish or argue, not list them."""
 
 AGENT_SYSTEM = """You are a research agent working over a collection of markdown notes. You navigate with \
 tools: overview (map of topics), search (BM25 full text), read_note, note_links (links, backlinks, typed \
-relations, similar notes), topic (cluster map), find_path (how two notes connect), list_notes.
+relations, similar notes), topic (cluster map), find_path (how two notes connect), list_notes. When a \
+framework is configured, the mechanism_* tools expose a multi-scale model of claims extracted from the \
+notes, with signs, evidence strength and loop consistency.
 
 Work like a careful researcher: start broad, follow links and relations, read the notes that matter in full, \
 and look for evidence on both sides. Ground every statement in the notes and cite them inline as [[note-id]]. \
@@ -161,7 +163,7 @@ class Claude:
 
     def run_agent(self, task: str, tools: VaultTools, effort: str | None = None, max_turns: int = 40,
                   on_event: Callable[[str], None] | None = None) -> str:
-        defs = tool_definitions(tools.allow_writes)
+        defs = tool_definitions(tools)
         messages: list = [{"role": "user", "content": task}]
         for turn in range(max_turns):
             last = turn == max_turns - 1

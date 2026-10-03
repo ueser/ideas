@@ -20,6 +20,11 @@ and `AGENTS.md`. Human notes are the source of truth; the navigation layer is re
    (supports / contradicts / extends / …) and similar notes not yet linked.
 5. Connect: `cairn path <a> <b>` shows the chain of links/relations between two notes.
 
+6. Framework lens (if `cairn.toml` sets `framework`): `cairn mech overview` (entities per
+   scale), `cairn mech entity <name>` (causes, effects, quotes, loops), `cairn mech chains --to
+   <target>` (chains up the scales, with open points), `cairn mech check` (incoherent loops:
+   signs around a loop must multiply to +; suspect links are listed with their contexts).
+
 Add `--json` to any command for structured output. Run commands from the notes folder or
 pass `-C <folder>`.
 
